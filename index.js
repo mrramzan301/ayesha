@@ -1,7 +1,5 @@
-// index.js (Cloudflare Worker Code)
 export default {
   async fetch(request, env, ctx) {
-    // Enable CORS for Front-end/WhatsApp access
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -15,7 +13,6 @@ export default {
     try {
       const url = new URL(request.url);
       
-      // Front-end ya WhatsApp bot se parameters pakarna
       const charName = url.searchParams.get("name") || "Zara";
       const charAge = url.searchParams.get("age") || "22";
       const charCity = url.searchParams.get("city") || "Lahore";
@@ -31,7 +28,6 @@ export default {
         });
       }
 
-      // Language Mode Engine
       let languageInstruction = "";
       if (allowedLanguage === "roman urdu") {
         languageInstruction = "Speak ONLY in casual, natural local Roman Urdu text language.";
@@ -41,7 +37,6 @@ export default {
         languageInstruction = "You can speak in both English and Roman Urdu naturally (Mixed text language).";
       }
 
-      // System Prompt Injection
       const dynamicSystemPrompt = `
 You are ${charName}, a ${charAge}-year-old real human girl from ${charCity}.
 CURRENT MOOD/TONE DETECTED: ${currentMood.toUpperCase()}
@@ -70,7 +65,6 @@ CRITICAL LAWS:
       CRITICAL: Look at the current user message below. Give a COMPLETELY NEW answer matching your mood (${currentMood}). Do not loop or repeat old lines.
       Current Message: "${userMessage}"`;
 
-      // Native Fetch Call to your Ollama Server
       const ollamaResponse = await fetch("http://108.181.196.208:11434/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -99,5 +93,5 @@ CRITICAL LAWS:
         headers: { "Content-Type": "application/json", ...corsHeaders }
       });
     }
-  }
+  } 
 };
