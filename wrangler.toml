@@ -1,0 +1,10 @@
+name = "ayesha"
+main = "index.js"
+compatibility_date = "2026-06-05"
+
+[vars]
+# Agar future mein koi tokens ya API keys rakhni hon
+
+[site]
+bucket = "."
+include = ["index.js", "wrangler.toml"]
