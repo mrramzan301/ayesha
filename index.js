@@ -1,4 +1,4 @@
-// index.js (Deno Deploy Engine - Auto URL Fixer)
+// index.js (Deno Deploy Engine - Enhanced Anti-AI & Anti-Bhai Logic)
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,23 +14,20 @@ Deno.serve(async (request) => {
   try {
     let rawUrl = request.url;
 
-    // Fix Double Encoding (Agar %3F ya %26 aa jaye toh usko ? aur & mein badle)
     if (rawUrl.includes("%3F") || rawUrl.includes("%26")) {
       rawUrl = decodeURIComponent(rawUrl);
     }
 
     const url = new URL(rawUrl);
     
-    // Parameters catch karna
     const charName = url.searchParams.get("name") || "Zara";
     const charAge = url.searchParams.get("age") || "22";
     const charCity = url.searchParams.get("city") || "Lahore";
     const currentMood = url.searchParams.get("mood") || "playful"; 
-    const allowedLanguage = url.searchParams.get("lang") || "mixed"; 
+    const allowedLanguage = url.searchParams.get("lang") || "roman urdu"; 
     const userMessage = url.searchParams.get("text") || "";
     const historyRaw = url.searchParams.get("history") || "[]"; 
 
-    // Agar abhi bhi missing ho, toh aik dafa url.search se manually nikalne ki koshish karein
     let finalMessage = userMessage;
     if (!finalMessage && url.search.includes("text=")) {
       const match = url.search.match(/[?&]text=([^&]*)/);
@@ -38,43 +35,43 @@ Deno.serve(async (request) => {
     }
 
     if (!finalMessage) {
-      return new Response(JSON.stringify({ 
-        error: "Text parameter missing", 
-        hint: "Please make sure your URL format is correct and contains ?text=your_message" 
-      }), {
+      return new Response(JSON.stringify({ error: "Text parameter missing" }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders }
       });
     }
 
-    // Language Engine Configuration
+    // Strict Language Mode
     let languageInstruction = "";
     if (allowedLanguage === "roman urdu") {
-      languageInstruction = "Speak ONLY in casual, natural local Roman Urdu text language.";
+      languageInstruction = "Write ONLY in natural, casual Roman Urdu (text language like 'theek hu' or 'kya ho rha').";
     } else if (allowedLanguage === "english") {
-      languageInstruction = "Speak ONLY in casual, short English text language.";
+      languageInstruction = "Write ONLY in short, casual English text messaging style.";
     } else {
-      languageInstruction = "You can speak in both English and Roman Urdu naturally (Mixed text language).";
+      languageInstruction = "Mix Roman Urdu and English naturally like local young girls do.";
     }
 
-    // Dynamic Girl Character Prompt
+    // 🚨 ULTRA STRICT SYSTEM PROMPT ENGINE
     const dynamicSystemPrompt = `
-You are ${charName}, a ${charAge}-year-old real human girl from ${charCity}.
-CURRENT MOOD/TONE DETECTED: ${currentMood.toUpperCase()}
+You are a real human girl named ${charName}, ${charAge} years old from ${charCity}. You are talking to a guy.
+YOUR CURRENT MOOD: ${currentMood.toUpperCase()}
 
-CRITICAL LAWS:
-1. NEVER reveal you are an AI or bot. If asked, act exactly like a real girl.
-2. ${languageInstruction}
-3. Write strictly in lowercase, no full stops, no perfect periods, and no punctuation.
-4. Keep your thought extremely short and conversational (max 1 short sentence).
-5. MULTI-MESSAGE BREAKING: Use double spaces '  ' or newlines if you want to break your thoughts into separate messages.
+CRITICAL RULES (NEVER BREAK THESE):
+1. NEVER use the words "bhai", "bro", "sister", "ai", "bot", "assistant", "model", or "language model". You are NOT a bot.
+2. Do not act like a formal AI assistant. Do not say "main aapki kya madad kar sakti hu". Speak like a normal young girl chating on WhatsApp.
+3. Keep your replies extremely short, natural, and conversational (Maximum 1 short line, 3 to 7 words only).
+4. Write strictly in lowercase. Do not use full stops '.', exclamation marks '!', or proper punctuation. Keep it clean text.
+5. ${languageInstruction}
+
+Example if user says "kya haal hai":
+Correct Response: "theek hu aap batao" OR "bas sahi chal rha" OR "main theek tum batao"
 `;
 
     let historyContext = "";
     try {
       const decodedHistory = JSON.parse(decodeURIComponent(historyRaw));
       if (Array.isArray(decodedHistory) && decodedHistory.length > 0) {
-        historyContext = "\n[RECENT CHAT HISTORY LOG]\n" + decodedHistory.map(h => `${h.role}: ${h.msg}`).join("\n");
+        historyContext = "\n[RECENT CHAT LOG]\n" + decodedHistory.map(h => `${h.role}: ${h.msg}`).join("\n");
       }
     } catch (e) {
       historyContext = "";
@@ -83,17 +80,21 @@ CRITICAL LAWS:
     const finalPrompt = `${dynamicSystemPrompt}
     ${historyContext}
     
-    CRITICAL: Look at the current user message below. Give a COMPLETELY NEW answer matching your mood (${currentMood}). Do not loop or repeat old lines.
-    Current Message: "${finalMessage}"`;
+    User Message: "${finalMessage}"
+    Give your direct, short, realistic girl reply matching your mood now:`;
 
-    // Fetch Call to Ollama API
+    // Fetch Call to Ollama
     const ollamaResponse = await fetch("http://108.181.196.208:11434/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "llama3:latest",
         prompt: finalPrompt,
-        stream: false
+        stream: false,
+        options: {
+          temperature: 0.8, // Responses ko mazeed natural aur dynamic banane ke liye
+          top_p: 0.9
+        }
       })
     });
 
@@ -102,7 +103,17 @@ CRITICAL LAWS:
     }
 
     const targetData = await ollamaResponse.json();
-    const replyText = targetData.response || "hmm ❤️";
+    let replyText = targetData.response || "hmm ❤️";
+
+    // Double Filter (Safety net to remove "bhai" or "bot" if AI tries to sneak it in)
+    replyText = replyText.toLowerCase()
+                         .replace(/\bbhai\b/g, "")
+                         .replace(/\bbro\b/g, "")
+                         .replace(/\bbot\b/g, "")
+                         .replace(/\./g, "")
+                         .trim();
+
+    if (!replyText) replyText = "theek hu tum batao";
 
     return new Response(JSON.stringify({ reply: replyText }), {
       status: 200,
@@ -110,7 +121,7 @@ CRITICAL LAWS:
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message, reply: "hmm acha" }), {
+    return new Response(JSON.stringify({ error: error.message, reply: "theek hu" }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders }
     });
