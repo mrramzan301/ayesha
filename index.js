@@ -1,23 +1,27 @@
-// index.js (Deno Deploy Engine)
+// index.js (Deno Deploy Engine - Auto URL Fixer)
 
-// 1. ENABLE CORS HEADERS
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-// 2. MAIN DENO SERVER ENGINE
 Deno.serve(async (request) => {
-  // Handle Preflight OPTIONS request for Frontend
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const url = new URL(request.url);
+    let rawUrl = request.url;
+
+    // Fix Double Encoding (Agar %3F ya %26 aa jaye toh usko ? aur & mein badle)
+    if (rawUrl.includes("%3F") || rawUrl.includes("%26")) {
+      rawUrl = decodeURIComponent(rawUrl);
+    }
+
+    const url = new URL(rawUrl);
     
-    // URL Parameters catch karna
+    // Parameters catch karna
     const charName = url.searchParams.get("name") || "Zara";
     const charAge = url.searchParams.get("age") || "22";
     const charCity = url.searchParams.get("city") || "Lahore";
@@ -26,8 +30,18 @@ Deno.serve(async (request) => {
     const userMessage = url.searchParams.get("text") || "";
     const historyRaw = url.searchParams.get("history") || "[]"; 
 
-    if (!userMessage) {
-      return new Response(JSON.stringify({ error: "Text parameter missing" }), {
+    // Agar abhi bhi missing ho, toh aik dafa url.search se manually nikalne ki koshish karein
+    let finalMessage = userMessage;
+    if (!finalMessage && url.search.includes("text=")) {
+      const match = url.search.match(/[?&]text=([^&]*)/);
+      if (match) finalMessage = decodeURIComponent(match[1]);
+    }
+
+    if (!finalMessage) {
+      return new Response(JSON.stringify({ 
+        error: "Text parameter missing", 
+        hint: "Please make sure your URL format is correct and contains ?text=your_message" 
+      }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders }
       });
@@ -56,7 +70,6 @@ CRITICAL LAWS:
 5. MULTI-MESSAGE BREAKING: Use double spaces '  ' or newlines if you want to break your thoughts into separate messages.
 `;
 
-    // Safe Chat History Parsing
     let historyContext = "";
     try {
       const decodedHistory = JSON.parse(decodeURIComponent(historyRaw));
@@ -71,7 +84,7 @@ CRITICAL LAWS:
     ${historyContext}
     
     CRITICAL: Look at the current user message below. Give a COMPLETELY NEW answer matching your mood (${currentMood}). Do not loop or repeat old lines.
-    Current Message: "${userMessage}"`;
+    Current Message: "${finalMessage}"`;
 
     // Fetch Call to Ollama API
     const ollamaResponse = await fetch("http://108.181.196.208:11434/api/generate", {
