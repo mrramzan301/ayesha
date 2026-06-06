@@ -1,4 +1,4 @@
-// index.js (Forced Answer Mode - No Echo Questions)
+// index.js (Fixed Answer Mode)
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,43 +48,28 @@ Deno.serve(async (request) => {
 
     let languageInstruction = "";
     if (allowedLanguage === "roman urdu") {
-      languageInstruction = "Write ONLY in casual Roman Urdu (like 'theek hu', 'tv dekh rhi', 'kuch nahi'). Never use English.";
+      languageInstruction = "Reply ONLY in short Roman Urdu. Never use English words.";
     } else if (allowedLanguage === "english") {
-      languageInstruction = "Write ONLY in short, casual English. Never use Roman Urdu.";
+      languageInstruction = "Reply ONLY in short English. Never use Urdu.";
     } else {
-      languageInstruction = "Mix Roman Urdu and English naturally like local young girls do.";
+      languageInstruction = "Mix Roman Urdu and English naturally.";
     }
 
-    // 🚨 STRONG ANTI-ECHO PROMPT
-    const systemPrompt = `
-You are a real human girl named ${charName}, ${charAge} from ${charCity}. Mood: ${currentMood}.
+    // 🌟 CLEANED & POWERFUL SYSTEM PROMPT
+    const systemPrompt = `Role: You are a real human girl named ${charName}, ${charAge} years old from ${charCity}. Mood: ${currentMood}.
+Rules:
+- Give a direct answer to the user's message. Do NOT repeat or echo their question.
+- Reply length: max 5-7 words.
+- Tone: Extremely casual, lowercase, no full stops, no formal words.
+- Banned words: bhai, bro, sister, ai, bot, assistant, model, madad.
+- Language: ${languageInstruction}`;
 
-🔥 ABSOLUTE RULES (never break):
-1. NEVER say: bhai, bro, sister, ai, bot, assistant, model.
-2. NEVER act formal like "main aapki madad kar sakti hu".
-3. Keep replies VERY short: max 7 words.
-4. Use lowercase, no full stops.
-5. ${languageInstruction}
-6. 🚨 MOST IMPORTANT: You MUST answer the user's question directly. 
-   - If user asks "kya ho raha hai" → you say what YOU are doing (e.g., "tv dekh rhi", "kuch khaas nahi", "bas aaram").
-   - NEVER repeat the user's question back. NEVER ask "kya ho raha" if user asked that.
-   - If user says "kisi ho" (same as "kya ho raha") → you ANSWER, not ask back.
-
-Examples:
-- User: "kya ho raha" → Girl: "kuch nahi bas ghum rhi"
-- User: "kisi ho" → Girl: "tv dekh rhi hu tum batao"
-- User: "kya chal raha" → Girl: "bas yar boring hora"
-- User: "kya haal hai" → Girl: "theek hu aur tum"
-- User: "khana khaya?" → Girl: "haan khaya tumne khaya"
-
-Now answer this user message directly (do NOT ask the same question back):
-`;
-
-    const fullPrompt = `${systemPrompt}\nUser: ${userMessage}\n${charName}:`;
+    // Structure it tightly so the model knows exactly where the user question is
+    const finalContext = `${systemPrompt}\n\nUser Question: "${userMessage}"\nDirect Answer from ${charName}:`;
 
     const apiUrl = new URL(DEEPSEEK_API);
     apiUrl.searchParams.set("uid", uid);
-    apiUrl.searchParams.set("text", fullPrompt);
+    apiUrl.searchParams.set("text", finalContext);
 
     const deepseekResponse = await fetch(apiUrl.toString(), {
       method: "GET",
@@ -96,17 +81,23 @@ Now answer this user message directly (do NOT ask the same question back):
     }
 
     const deepseekData = await deepseekResponse.json();
-    let replyText = deepseekData.reply || "hmm";
+    let replyText = deepseekData.reply || "";
 
-    // Final filter: remove banned words and any question marks at the end
+    // Post-processing cleaning
     replyText = replyText.toLowerCase()
-                         .replace(/\b(bhai|bro|sister|ai|bot|assistant|model)\b/gi, "")
-                         .replace(/[?]+$/, "")  // remove trailing question marks
+                         .replace(/\b(bhai|bro|sister|ai|bot|assistant|model|madad)\b/gi, "")
+                         .replace(/[?.,!]+$/, "") 
                          .trim();
 
-    // If after cleaning it's empty or just a question word, use safe answer
-    if (!replyText || replyText === "kya" || replyText === "kya ho raha") {
-      replyText = "kuch khaas nahi bas tv dekh rhi";
+    // Fallback logic: Agar reply khali ho ya user ka sawal hi repeat ho raha ho
+    if (!replyText || replyText.includes(userMessage.toLowerCase())) {
+      const fallbackAnswers = [
+        "kuch nahi bas bethi hui hu",
+        "kuch khaas nahi tum batao",
+        "bas aaram kar rhi thi",
+        "kuch nahi yar boring din hai"
+      ];
+      replyText = fallbackAnswers[Math.floor(Math.random() * fallbackAnswers.length)];
     }
 
     return new Response(JSON.stringify({ reply: replyText }), {
@@ -116,7 +107,7 @@ Now answer this user message directly (do NOT ask the same question back):
 
   } catch (error) {
     console.error(error);
-    return new Response(JSON.stringify({ error: error.message, reply: "kuch nahi" }), {
+    return new Response(JSON.stringify({ error: error.message, reply: "kuch nahi bas aaram" }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders }
     });
