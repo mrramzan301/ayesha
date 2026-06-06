@@ -1,4 +1,4 @@
-// index.js (Fixed Answer Mode)
+// index.js (Super Strict Answer Mode)
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,24 +48,31 @@ Deno.serve(async (request) => {
 
     let languageInstruction = "";
     if (allowedLanguage === "roman urdu") {
-      languageInstruction = "Reply ONLY in short Roman Urdu. Never use English words.";
+      languageInstruction = "Strictly use only short, casual Roman Urdu text. No english.";
     } else if (allowedLanguage === "english") {
-      languageInstruction = "Reply ONLY in short English. Never use Urdu.";
+      languageInstruction = "Strictly use only short English. No urdu.";
     } else {
-      languageInstruction = "Mix Roman Urdu and English naturally.";
+      languageInstruction = "Mix Roman Urdu and English casually.";
     }
 
-    // 🌟 CLEANED & POWERFUL SYSTEM PROMPT
-    const systemPrompt = `Role: You are a real human girl named ${charName}, ${charAge} years old from ${charCity}. Mood: ${currentMood}.
-Rules:
-- Give a direct answer to the user's message. Do NOT repeat or echo their question.
-- Reply length: max 5-7 words.
-- Tone: Extremely casual, lowercase, no full stops, no formal words.
-- Banned words: bhai, bro, sister, ai, bot, assistant, model, madad.
-- Language: ${languageInstruction}`;
+    // 🔥 HIGHLY RESTRICTED & FEW-SHOT PROMPT STYLE
+    const systemPrompt = `You are a real 22yo local human girl named ${charName} from ${charCity}. Mood: ${currentMood}.
+CRITICAL RULES:
+- Never use words: bhai, bro, sister, dost, ai, bot, assistant, model, madad.
+- Keep replies extremely short (2 to 5 words max).
+- Use all lowercase, no full stops, no punctuation.
+- Talk like a normal, lazy young girl chatting on WhatsApp.
+- ${languageInstruction}
 
-    // Structure it tightly so the model knows exactly where the user question is
-    const finalContext = `${systemPrompt}\n\nUser Question: "${userMessage}"\nDirect Answer from ${charName}:`;
+Conversational Examples (Follow this style exactly):
+User: "kya ho raha" -> ${charName}: "kuch nahi bas bethi hu"
+User: "kasi ho" -> ${charName}: "theek hu tum batao"
+User: "khana khaya" -> ${charName}: "haan abhi khaya"
+User: "ma theek ap sunao" -> ${charName}: "bas aaram kar rhi thi"
+User: "kya chal raha hai" -> ${charName}: "kuch khaas nahi boring din"`;
+
+    // Strict input formatting to force direct matching
+    const finalContext = `${systemPrompt}\n\nUser: "${userMessage}"\n${charName}:`;
 
     const apiUrl = new URL(DEEPSEEK_API);
     apiUrl.searchParams.set("uid", uid);
@@ -83,21 +90,27 @@ Rules:
     const deepseekData = await deepseekResponse.json();
     let replyText = deepseekData.reply || "";
 
-    // Post-processing cleaning
+    // Clean response
     replyText = replyText.toLowerCase()
-                         .replace(/\b(bhai|bro|sister|ai|bot|assistant|model|madad)\b/gi, "")
+                         .replace(/\b(bhai|bro|sister|dost|ai|bot|assistant|model|madad)\b/gi, "")
                          .replace(/[?.,!]+$/, "") 
                          .trim();
 
-    // Fallback logic: Agar reply khali ho ya user ka sawal hi repeat ho raha ho
-    if (!replyText || replyText.includes(userMessage.toLowerCase())) {
-      const fallbackAnswers = [
-        "kuch nahi bas bethi hui hu",
-        "kuch khaas nahi tum batao",
-        "bas aaram kar rhi thi",
-        "kuch nahi yar boring din hai"
+    // Word limit enforcement (Max 6 words cutting)
+    const words = replyText.split(/\s+/);
+    if (words.length > 6) {
+      replyText = words.slice(0, 5).join(" ");
+    }
+
+    // Safety Fallback for bad or echoed responses
+    if (!replyText || replyText.includes(userMessage.toLowerCase()) || replyText.length < 2) {
+      const standardReplies = [
+        "bas aaram kar rhi hu",
+        "kuch nahi bas bethi hui",
+        "theek hu tum sunao",
+        "bas yar boring ho rhi"
       ];
-      replyText = fallbackAnswers[Math.floor(Math.random() * fallbackAnswers.length)];
+      replyText = standardReplies[Math.floor(Math.random() * standardReplies.length)];
     }
 
     return new Response(JSON.stringify({ reply: replyText }), {
@@ -107,7 +120,7 @@ Rules:
 
   } catch (error) {
     console.error(error);
-    return new Response(JSON.stringify({ error: error.message, reply: "kuch nahi bas aaram" }), {
+    return new Response(JSON.stringify({ error: error.message, reply: "theek hu tum batao" }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders }
     });
