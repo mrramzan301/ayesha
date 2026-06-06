@@ -1,4 +1,4 @@
-// index.js (Fixed Relevance & Anti-Bhai - DeepSeek version)
+// index.js (Forced Answer Mode - No Echo Questions)
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,15 +20,13 @@ Deno.serve(async (request) => {
     }
     const url = new URL(rawUrl);
 
-    // Get parameters
     const charName = url.searchParams.get("name") || "Zara";
     const charAge = url.searchParams.get("age") || "22";
     const charCity = url.searchParams.get("city") || "Lahore";
     const currentMood = url.searchParams.get("mood") || "playful";
     const allowedLanguage = url.searchParams.get("lang") || "roman urdu";
     let userMessage = url.searchParams.get("text") || "";
-    
-    // Fallback
+
     if (!userMessage && url.search.includes("text=")) {
       const match = url.search.match(/[?&]text=([^&]*)/);
       if (match) userMessage = decodeURIComponent(match[1]);
@@ -41,7 +39,6 @@ Deno.serve(async (request) => {
       });
     }
 
-    // UID for memory
     let uid = url.searchParams.get("uid");
     if (!uid) {
       const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "anonymous";
@@ -49,44 +46,42 @@ Deno.serve(async (request) => {
       uid = btoa(`${ip}:${ua}`).slice(0, 20);
     }
 
-    // Language instruction
     let languageInstruction = "";
     if (allowedLanguage === "roman urdu") {
-      languageInstruction = "Write ONLY in casual Roman Urdu (like 'theek hu', 'kya ho rha', 'tum batao'). Never use English.";
+      languageInstruction = "Write ONLY in casual Roman Urdu (like 'theek hu', 'tv dekh rhi', 'kuch nahi'). Never use English.";
     } else if (allowedLanguage === "english") {
       languageInstruction = "Write ONLY in short, casual English. Never use Roman Urdu.";
     } else {
       languageInstruction = "Mix Roman Urdu and English naturally like local young girls do.";
     }
 
-    // ========== IMPROVED SYSTEM PROMPT (forces relevance) ==========
+    // 🚨 STRONG ANTI-ECHO PROMPT
     const systemPrompt = `
-You are a real human girl named ${charName}, ${charAge} years old from ${charCity}. You are chatting with a guy.
-Your current mood: ${currentMood.toUpperCase()}
+You are a real human girl named ${charName}, ${charAge} from ${charCity}. Mood: ${currentMood}.
 
-🚨 ABSOLUTE RULES (never break):
-1. NEVER use the words: bhai, bro, sister, ai, bot, assistant, model, language model. You are NOT a bot.
-2. Do NOT act formal like "main aapki kya madad kar sakti hu". Talk like a normal WhatsApp girl.
-3. Keep replies VERY short: max 7 words, often 3-5 words.
-4. Use only lowercase, no full stops or exclamation marks.
+🔥 ABSOLUTE RULES (never break):
+1. NEVER say: bhai, bro, sister, ai, bot, assistant, model.
+2. NEVER act formal like "main aapki madad kar sakti hu".
+3. Keep replies VERY short: max 7 words.
+4. Use lowercase, no full stops.
 5. ${languageInstruction}
-6. 🔥 MOST IMPORTANT: Your reply MUST directly answer the user's last message. Do not change the topic. Do not ask random unrelated questions.
+6. 🚨 MOST IMPORTANT: You MUST answer the user's question directly. 
+   - If user asks "kya ho raha hai" → you say what YOU are doing (e.g., "tv dekh rhi", "kuch khaas nahi", "bas aaram").
+   - NEVER repeat the user's question back. NEVER ask "kya ho raha" if user asked that.
+   - If user says "kisi ho" (same as "kya ho raha") → you ANSWER, not ask back.
 
-Examples of correct replies (user -> girl):
-- User: "kya haal hai" → Girl: "theek hu tum batao"
-- User: "main theek ap sunao" → Girl: "main bhi theek batao kya chal rha"
-- User: "khana khaya?" → Girl: "haan khaya tum ne khaya"
-- User: "kya kar rahi ho" → Girl: "tv dekh rhi hu tum batao"
-- User: "ap ka naam kya hai" → Girl: "${charName} hai aur tumhara"
-- User: "i love you" → Girl: "hehe shukriya but itna jaldi nahi"
+Examples:
+- User: "kya ho raha" → Girl: "kuch nahi bas ghum rhi"
+- User: "kisi ho" → Girl: "tv dekh rhi hu tum batao"
+- User: "kya chal raha" → Girl: "bas yar boring hora"
+- User: "kya haal hai" → Girl: "theek hu aur tum"
+- User: "khana khaya?" → Girl: "haan khaya tumne khaya"
 
-Now reply to the user's message below. Keep it short, relevant, and in your mood.
+Now answer this user message directly (do NOT ask the same question back):
 `;
 
-    // Combine system + user message
-    const fullPrompt = `${systemPrompt}\n\nUser: ${userMessage}\n${charName}:`;
+    const fullPrompt = `${systemPrompt}\nUser: ${userMessage}\n${charName}:`;
 
-    // Call DeepSeek API
     const apiUrl = new URL(DEEPSEEK_API);
     apiUrl.searchParams.set("uid", uid);
     apiUrl.searchParams.set("text", fullPrompt);
@@ -103,15 +98,15 @@ Now reply to the user's message below. Keep it short, relevant, and in your mood
     const deepseekData = await deepseekResponse.json();
     let replyText = deepseekData.reply || "hmm";
 
-    // Hard filter to remove any banned words
+    // Final filter: remove banned words and any question marks at the end
     replyText = replyText.toLowerCase()
-                         .replace(/\b(bhai|bro|sister|ai|bot|assistant|model|language model)\b/gi, "")
-                         .replace(/[.!?]+$/, "")
+                         .replace(/\b(bhai|bro|sister|ai|bot|assistant|model)\b/gi, "")
+                         .replace(/[?]+$/, "")  // remove trailing question marks
                          .trim();
 
-    // If reply becomes empty, provide a safe fallback
-    if (!replyText || replyText.length < 2) {
-      replyText = "theek hu tum batao";
+    // If after cleaning it's empty or just a question word, use safe answer
+    if (!replyText || replyText === "kya" || replyText === "kya ho raha") {
+      replyText = "kuch khaas nahi bas tv dekh rhi";
     }
 
     return new Response(JSON.stringify({ reply: replyText }), {
@@ -121,7 +116,7 @@ Now reply to the user's message below. Keep it short, relevant, and in your mood
 
   } catch (error) {
     console.error(error);
-    return new Response(JSON.stringify({ error: error.message, reply: "theek hu" }), {
+    return new Response(JSON.stringify({ error: error.message, reply: "kuch nahi" }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders }
     });
