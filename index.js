@@ -1,4 +1,4 @@
-// index.js (DeepSeek Integrated - Pakistani Girl Core Engine)
+// index.js (100% Free Style - Full Natural Response Engine)
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-// Asli DeepSeek Endpoint
+// Main DeepSeek Endpoint
 const DEEPSEEK_API = "http://de3.bot-hosting.net:21007/kilwa-deepseek";
 
 Deno.serve(async (request) => {
@@ -26,35 +26,36 @@ Deno.serve(async (request) => {
 
   const cleanInput = userText.toLowerCase().trim();
 
-  // 🌟 HARD-CODED DESI OVERRIDE SYSTEM (Agar DeepSeek bhatak jaye toh yeh force reply karega)
-  const girlDatabase = {
-    kaam: ["bas leti hui hu mobile use kar rhi", "kuch nahi bas abhi ghar ka kaam khatam kiya", "ammi ke sath bethi hui hu abhi", "bas free bethi drama dekh rhi hu", "kitchen me thi thora kaam kar rhi thi"],
-    khana: ["haan khaya biryani khayi thi aaj", "nahi abhi thori dair me khaungi yar", "haan kha liya tumne khaya kuch?", "bas abhi khana khanay hi lagi hu"],
-    haal: ["alhamdulillah main bilkul theek tum sunao", "theek hu bas thora thak gayi thi aaj", "fit fat tum batao kaise ho?"]
+  // 🌟 NATURAL DESI BACKUP REPLIES (Sirf tab chalengi agar API down ho ya crash ho jaye)
+  const backupDatabase = {
+    kaam: "kuch khas nahi yar bas abhi ghar ke kaam khatam kiye hain aur ammi ke sath bethi hui hu, tum batao kya chal raha hai?",
+    khana: "haan khana toh kha liya, aaj ammi ne bohot mazay ki biryani banayi thi. tumne khaya kuch ya abhi bhookay ho?",
+    haal: "alhamdulillah main bilkul theek thaak, fit fat hu. aaj thora sa kaam zyada tha toh thak gayi bas, tum sunao kaise ho?"
   };
 
-  let fallbackReply = "kuch nahi bas bethi hui hu tum sunao";
+  let fallbackReply = "kuch nahi bas bethi hui hu aur mobile use kar rhi, tum sunao kya naya chal raha hai?";
   if (/kya kar|kia kr|kya ho|kya chal|karti ho|free|kr rhi/.test(cleanInput)) {
-    fallbackReply = girlDatabase.kaam[Math.floor(Math.random() * girlDatabase.kaam.length)];
+    fallbackReply = backupDatabase.kaam;
   } else if (/khana|khaya|bhook|dinner/.test(cleanInput)) {
-    fallbackReply = girlDatabase.khana[Math.floor(Math.random() * girlDatabase.khana.length)];
+    fallbackReply = backupDatabase.khana;
   } else if (/kaisi ho|kasi ho|haal|theek|thik/.test(cleanInput)) {
-    fallbackReply = girlDatabase.haal[Math.floor(Math.random() * girlDatabase.haal.length)];
+    fallbackReply = backupDatabase.haal;
   }
 
-  // 🌟 STRICT PROMPT FOR DEEPSEEK
-  const systemPrompt = `You are playing a strict roleplay of a 22-year-old local Pakistani human girl named Zara from Lahore.
-Style: WhatsApp chatting style, always use all lowercase, no punctuation, no full stops, no emojis, short replies (4-6 words max).
-Language: Strictly use local Roman Urdu only. Never reply in English phrases. Use words like 'hu', 'rhi', 'bas', 'yar', 'acha', 'tum'.
-Constraint: Never say 'bhai', 'bro', 'dost', 'assistant', 'bot', 'ai'. Answer the user directly like a real human friend.`;
+  // 🌟 NATURAL & UNRESTRICTED SYSTEM PROMPT
+  // Yahan se saari word-limit aur length ki pabandiyan khatam kar di hain taaki full sentences aayein
+  const systemPrompt = `You are a 22-year-old local Pakistani girl named Zara from Lahore. 
+Chat style: WhatsApp messaging style, use casual Roman Urdu/Urdu text. Express yourself naturally with full sentences and complete thoughts. Do not restrict your response length.
+Language: Strictly use local Roman Urdu only. Speak exactly like a local university girl from Lahore. Never reply in English phrases.
+Constraint: Never mention being an AI, bot, model, or assistant. You are a real human friend talking directly to the user.`;
 
-  // Final Blueprint payload for DeepSeek
+  // Dynamic context blueprint
   const finalContext = `${systemPrompt}\n\nuser: ${userText}\nZara:`;
 
   try {
-    // ➔ LIVE DEEPSEEK API CALL
     const apiTarget = new URL(DEEPSEEK_API);
-    apiTarget.searchParams.set("uid", "rand_" + Math.floor(Math.random() * 999999)); // Cache break karne ke liye
+    // Unique ID generator taaki server side memory cache break ho jaye har dafa
+    apiTarget.searchParams.set("uid", "zara_" + Math.floor(Math.random() * 9999999));
     apiTarget.searchParams.set("text", finalContext);
 
     const deepseekResponse = await fetch(apiTarget.toString(), {
@@ -63,24 +64,25 @@ Constraint: Never say 'bhai', 'bro', 'dost', 'assistant', 'bot', 'ai'. Answer th
     });
 
     if (!deepseekResponse.ok) {
-      throw new Error("DeepSeek Server Down");
+      throw new Error("DeepSeek Connection Error");
     }
 
     const deepseekData = await deepseekResponse.json();
     let aiReply = deepseekData.reply || "";
 
-    // Cleaning the response
-    aiReply = aiReply.toLowerCase()
-                     .replace(/\b(bhai|bro|sister|dost|ai|bot|assistant|model)\b/gi, "")
-                     .replace(/[?.,!"]+/g, "")
-                     .trim();
+    // Sirf basic cleaning (extra spaces ya bot self-referencing words hatane ke liye)
+    aiReply = aiReply.replace(/\b(ai|bot|assistant|model|system prompt)\b/gi, "").trim();
 
-    // 🌟 ENGLISH DETECTOR & OVERRIDE 
-    // Agar DeepSeek ne phir bhi proper English boli (jaise hey what's up), toh hum apna desi database inject kar denge
-    const isEnglishSentence = /^[a-zA-Z\s]+$/.test(aiReply) && !aiReply.includes("hu") && !aiReply.includes("rhi") && !aiReply.includes("bas") && !aiReply.includes("tum");
+    // 🌟 RE-ROUTING SAFETY OVERRIDE
+    // Agar AI bilkul pure English bolne lag jaye, sirf tabhi backup response bhejega taaki Roman Urdu kharab na ho
+    const isPureEnglish = /^[a-zA-Z\s\d?,.!'"]+$/.test(aiReply) && 
+                          !aiReply.toLowerCase().includes("hu") && 
+                          !aiReply.toLowerCase().includes("rhi") && 
+                          !aiReply.toLowerCase().includes("hai") && 
+                          !aiReply.toLowerCase().includes("tum");
 
-    if (!aiReply || isEnglishSentence || aiReply.length < 2) {
-      aiReply = fallbackReply; // Force pure Roman Urdu
+    if (!aiReply || isPureEnglish || aiReply.length < 3) {
+      aiReply = fallbackReply;
     }
 
     return new Response(JSON.stringify({ reply: aiReply }), {
@@ -89,7 +91,7 @@ Constraint: Never say 'bhai', 'bro', 'dost', 'assistant', 'bot', 'ai'. Answer th
     });
 
   } catch (error) {
-    // Agar DeepSeek ka server response na de, toh fallback reply foran chalegi (User ko crash nahi dikhega)
+    // Backend safe fallback check
     return new Response(JSON.stringify({ reply: fallbackReply }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders }
