@@ -1,4 +1,4 @@
-// index.js (Deno Deploy - Using Kilwa DeepSeek API with Girl Persona & Anti-Bhai Logic)
+// index.js (Fixed Relevance & Anti-Bhai - DeepSeek version)
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,7 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-// DeepSeek API endpoint
 const DEEPSEEK_API = "http://de3.bot-hosting.net:21007/kilwa-deepseek";
 
 Deno.serve(async (request) => {
@@ -21,15 +20,15 @@ Deno.serve(async (request) => {
     }
     const url = new URL(rawUrl);
 
-    // ----- Extract all parameters -----
+    // Get parameters
     const charName = url.searchParams.get("name") || "Zara";
     const charAge = url.searchParams.get("age") || "22";
     const charCity = url.searchParams.get("city") || "Lahore";
     const currentMood = url.searchParams.get("mood") || "playful";
     const allowedLanguage = url.searchParams.get("lang") || "roman urdu";
     let userMessage = url.searchParams.get("text") || "";
-
-    // Fallback for poorly encoded text
+    
+    // Fallback
     if (!userMessage && url.search.includes("text=")) {
       const match = url.search.match(/[?&]text=([^&]*)/);
       if (match) userMessage = decodeURIComponent(match[1]);
@@ -42,45 +41,52 @@ Deno.serve(async (request) => {
       });
     }
 
-    // ----- User ID for conversation memory (critical for WhatsApp multi-user) -----
-    // Use provided uid, or generate a stable ID from IP+UserAgent (fallback)
+    // UID for memory
     let uid = url.searchParams.get("uid");
     if (!uid) {
-      // For environments where uid is not sent, create a simple fallback
       const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "anonymous";
       const ua = request.headers.get("user-agent") || "unknown";
-      uid = btoa(`${ip}:${ua}`).slice(0, 20); // simple hash
+      uid = btoa(`${ip}:${ua}`).slice(0, 20);
     }
 
-    // ----- Build the girl persona system prompt (strict rules) -----
+    // Language instruction
     let languageInstruction = "";
     if (allowedLanguage === "roman urdu") {
-      languageInstruction = "Write ONLY in natural, casual Roman Urdu (text language like 'theek hu' or 'kya ho rha'). Never use English.";
+      languageInstruction = "Write ONLY in casual Roman Urdu (like 'theek hu', 'kya ho rha', 'tum batao'). Never use English.";
     } else if (allowedLanguage === "english") {
-      languageInstruction = "Write ONLY in short, casual English text messaging style. Never use Roman Urdu.";
+      languageInstruction = "Write ONLY in short, casual English. Never use Roman Urdu.";
     } else {
       languageInstruction = "Mix Roman Urdu and English naturally like local young girls do.";
     }
 
+    // ========== IMPROVED SYSTEM PROMPT (forces relevance) ==========
     const systemPrompt = `
-You are a real human girl named ${charName}, ${charAge} years old from ${charCity}. You are talking to a guy.
-YOUR CURRENT MOOD: ${currentMood.toUpperCase()}
+You are a real human girl named ${charName}, ${charAge} years old from ${charCity}. You are chatting with a guy.
+Your current mood: ${currentMood.toUpperCase()}
 
-CRITICAL RULES (NEVER BREAK THESE):
-1. NEVER use the words "bhai", "bro", "sister", "ai", "bot", "assistant", "model", or "language model". You are NOT a bot.
-2. Do not act like a formal AI assistant. Do not say "main aapki kya madad kar sakti hu". Speak like a normal young girl chatting on WhatsApp.
-3. Keep your replies extremely short, natural, and conversational (Maximum 1 short line, 3 to 7 words only).
-4. Write strictly in lowercase. Do not use full stops '.', exclamation marks '!', or proper punctuation. Keep it clean text.
+🚨 ABSOLUTE RULES (never break):
+1. NEVER use the words: bhai, bro, sister, ai, bot, assistant, model, language model. You are NOT a bot.
+2. Do NOT act formal like "main aapki kya madad kar sakti hu". Talk like a normal WhatsApp girl.
+3. Keep replies VERY short: max 7 words, often 3-5 words.
+4. Use only lowercase, no full stops or exclamation marks.
 5. ${languageInstruction}
+6. 🔥 MOST IMPORTANT: Your reply MUST directly answer the user's last message. Do not change the topic. Do not ask random unrelated questions.
 
-Example if user says "kya haal hai":
-Correct Response: "theek hu aap batao" OR "bas sahi chal rha" OR "main theek tum batao"
+Examples of correct replies (user -> girl):
+- User: "kya haal hai" → Girl: "theek hu tum batao"
+- User: "main theek ap sunao" → Girl: "main bhi theek batao kya chal rha"
+- User: "khana khaya?" → Girl: "haan khaya tum ne khaya"
+- User: "kya kar rahi ho" → Girl: "tv dekh rhi hu tum batao"
+- User: "ap ka naam kya hai" → Girl: "${charName} hai aur tumhara"
+- User: "i love you" → Girl: "hehe shukriya but itna jaldi nahi"
+
+Now reply to the user's message below. Keep it short, relevant, and in your mood.
 `;
 
-    // Combine system prompt + user message
-    const fullPrompt = `${systemPrompt}\n\nUser: ${userMessage}\nGirl:`;
+    // Combine system + user message
+    const fullPrompt = `${systemPrompt}\n\nUser: ${userMessage}\n${charName}:`;
 
-    // ----- Call Kilwa DeepSeek API (GET request with uid & text) -----
+    // Call DeepSeek API
     const apiUrl = new URL(DEEPSEEK_API);
     apiUrl.searchParams.set("uid", uid);
     apiUrl.searchParams.set("text", fullPrompt);
@@ -95,18 +101,18 @@ Correct Response: "theek hu aap batao" OR "bas sahi chal rha" OR "main theek tum
     }
 
     const deepseekData = await deepseekResponse.json();
-    let replyText = deepseekData.reply || "hmm ❤️";
+    let replyText = deepseekData.reply || "hmm";
 
-    // ----- Double filter to remove any "bhai", "bro", "bot" etc. -----
+    // Hard filter to remove any banned words
     replyText = replyText.toLowerCase()
-                         .replace(/\bbhai\b/g, "")
-                         .replace(/\bbro\b/g, "")
-                         .replace(/\bbot\b/g, "")
-                         .replace(/\bai\b/g, "")
-                         .replace(/\./g, "")
+                         .replace(/\b(bhai|bro|sister|ai|bot|assistant|model|language model)\b/gi, "")
+                         .replace(/[.!?]+$/, "")
                          .trim();
 
-    if (!replyText) replyText = "theek hu tum batao";
+    // If reply becomes empty, provide a safe fallback
+    if (!replyText || replyText.length < 2) {
+      replyText = "theek hu tum batao";
+    }
 
     return new Response(JSON.stringify({ reply: replyText }), {
       status: 200,
